@@ -38,10 +38,10 @@ def tensorTrain(train_data, train_labels, clf):
     
     clf.train(
         input_fn=train_input_fn,
-        steps=20000,
+        steps=1,
         hooks=[logging_hook])
 
-def tensorEval():
+def tensorEval(eval_data, eval_labels, clf):
     eval_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"x": eval_data},
         y=eval_labels,
