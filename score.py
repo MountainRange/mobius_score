@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import librosa
 import librosa.display
 import sys
@@ -6,11 +8,8 @@ import numpy as np
 
 import tensorflow as tf
 
-def scoreSong(args):
-    score(args[0])
-
-def score(songname):
-    song, sample_rate = librosa.load("moonlightshort.mp3", sr=44100)
+def score(songname="moonlight.mp3"):
+    song, sample_rate = librosa.load(songname, sr=44100)
 
     # D = np.abs(librosa.stft(song))**2
 
@@ -164,4 +163,7 @@ def cnn(features, labels, mode):
         mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
 
 if __name__ == "__main__":
-    scoreSong(sys.argv)
+    if len(sys.argv) < 2:
+        score()
+    else:
+        score(sys.argv[1])
