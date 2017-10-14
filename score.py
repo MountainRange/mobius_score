@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from sheetMusic import sheetMusic
 import librosa
 import librosa.display
 import sys
@@ -125,3 +126,4 @@ if __name__ == "__main__":
     else:
         score(sys.argv[1])
     tensorDemo()
+    sheetMusic('test',[[],[],[],[]], 100)
