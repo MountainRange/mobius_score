@@ -70,6 +70,8 @@ def sheetMusic(filename, notes, tempo=100, key=0):
         if len(notes[i]) == 0:
             f.write('      <note>\n')
             f.write('        <rest/>\n')
+            f.write('        <duration>4</duration>\n')
+            f.write('        <type>quarter</type>\n')
             f.write('      </note>\n')
         else:
             for note in notes[i]:
@@ -79,6 +81,8 @@ def sheetMusic(filename, notes, tempo=100, key=0):
                 f.write('          <alter>' + str(note[1]) + '</alter>\n')
                 f.write('          <octave>' + str(note[2]) + '</octave>\n')
                 f.write('        </pitch>\n')
+                f.write('        <duration>' + str(note[3]) + '</duration>\n')
+                f.write('        <type>' + str(note[4]) + '</type>\n')
                 f.write('      </note>\n')
         if i % 4 == 3:
             f.write('    </measure>\n')
