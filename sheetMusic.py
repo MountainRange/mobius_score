@@ -2,7 +2,7 @@
 #
 # filename: string that the xml file should be named
 # title: string that will appear as the title of the sheet music
-# notes: array of 88-length arrays of note information
+# notes: array of chord arrays
 def sheetMusic(filename, notes, tempo=100, key=0):
     if type(filename) is not str:
         print('filename must be of type str')
@@ -67,7 +67,20 @@ def sheetMusic(filename, notes, tempo=100, key=0):
                 f.write('          </metronome>\n')
                 f.write('        </direction-type>\n')
                 f.write('      </direction>\n')
-        elif i % 4 == 3:
+        if len(notes[i]) == 0:
+            f.write('      <note>\n')
+            f.write('        <rest/>\n')
+            f.write('      </note>\n')
+        else:
+            for note in notes[i]:
+                f.write('      <note>\n')
+                f.write('        <pitch>\n')
+                f.write('          <step>' + note[0] + '</step>\n')
+                f.write('          <alter>' + note[1] + '</alter>\n')
+                f.write('          <octave>' + note[2] + '</octave>\n')
+                f.write('        </pitch>\n')
+                f.write('      </note>\n')
+        if i % 4 == 3:
             f.write('    </measure>\n')
     if i % 4 != 3:
         f.write('    </measure>\n')
