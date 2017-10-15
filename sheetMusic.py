@@ -26,7 +26,7 @@ def sheetMusic(filename, notes, tempo=100, key=0):
     f.write('      <midi-instrument id="P1-I3">\n')
     f.write('        <midi-channel>1</midi-channel>\n')
     f.write('        <midi-program>1</midi-program>\n')
-    f.write('        <volume>80</volume>\n')
+    f.write('        <volume>100</volume>\n')
     f.write('        <pan>0</pan>\n')
     f.write('      </midi-instrument>\n')
     f.write('    </score-part>\n')
@@ -74,8 +74,12 @@ def sheetMusic(filename, notes, tempo=100, key=0):
             f.write('        <type>quarter</type>\n')
             f.write('      </note>\n')
         else:
-            for note in notes[i]:
+            # add all notes in chord
+            for j in range(len(notes[i])):
+                note = notes[i][j]
                 f.write('      <note>\n')
+                if j != 0:
+                    f.write('        <chord/>\n')
                 f.write('        <pitch>\n')
                 f.write('          <step>' + str(note[0]) + '</step>\n')
                 f.write('          <alter>' + str(note[1]) + '</alter>\n')
