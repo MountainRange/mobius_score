@@ -5,10 +5,17 @@ import librosa.display
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 
 import tensorflow as tf
 
-def score(songname="moonlight.mp3"):
+def score(songname="moonlightshort.mp3"):
+
+    features = getFeatures(songname)
+
+    tensorDemo(features)
+
+def getFeatures(songname):
     song, sample_rate = librosa.load(songname, sr=44100)
 
     # D = np.abs(librosa.stft(song))**2
@@ -20,25 +27,18 @@ def score(songname="moonlight.mp3"):
                         n_bins=84*4, bins_per_octave=12*4, hop_length=64, filter_scale=0.2)
     amp_cqt = librosa.amplitude_to_db(cqt, ref=np.max)
 
-    print(cqt.size)
-    print(amp_cqt.size)
-    print(cqt[0].size)
-    print(cqt[0])
-    print(amp_cqt[0].size)
     # s = int(amp_cqt[0].size/2)
     # print(s)
     # print(amp_cqt[:,s])
 
     plt.figure(figsize=(12,4))
 
-    tempo, beats = librosa.beat.beat_track(y=song, sr=sample_rate, hop_length=64)
-    tempo2, quarterBeats = librosa.beat.beat_track(y=song, sr=sample_rate, hop_length=64, bpm=tempo*4)
+    tempo, beats = librosa.beat.beat_track(y=song, sr=sample_rate, hop_length=512)
+    tempo2, quarterBeats = librosa.beat.beat_track(y=song, sr=sample_rate, hop_length=512, bpm=tempo*4)
 
-    print(beats)
-    print(quarterBeats)
-    print(tempo)
+    quarterBeats = quarterBeats*8
 
-    #librosa.display.specshow(amp_cqt, sr=sample_rate, x_axis='time', y_axis='hz')
+    # librosa.display.specshow(amp_cqt, sr=sample_rate, x_axis='time', y_axis='hz')
 
     # plt.vlines(librosa.frames_to_time(quarterBeats)/2,
     #         1, 0.5 * sample_rate,
@@ -49,30 +49,24 @@ def score(songname="moonlight.mp3"):
     # plt.show()
 
     avgBeat = np.median(np.diff(beats))
-    w = int(avgBeat / 2)
+    w = 24 #int(avgBeat / 2)
     features = []
     for q in quarterBeats:
         features.append(amp_cqt[:,q-w:q+w])
     print(len(features))
-
-    tensorDemo(features)
+    return features
 
 def tensorTrain(train_data, train_labels, clf):
     train_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"x": train_data},
         y=train_labels,
-        batch_size=100,
+        batch_size=10,
         num_epochs=None,
         shuffle=True)
-
-    tensors_to_log = {"probabilities": "softmax_tensor"}
-    logging_hook = tf.train.LoggingTensorHook(
-        tensors=tensors_to_log, every_n_iter=50)
     
     clf.train(
         input_fn=train_input_fn,
-        steps=1,
-        hooks=[logging_hook])
+        steps=1)
 
 def tensorEval(eval_data, eval_labels, clf):
     eval_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -84,32 +78,60 @@ def tensorEval(eval_data, eval_labels, clf):
 
 
 def tensorDemo(features):
-    # mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-    # train_data = mnist.train.images
-    # train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-    # eval_data = mnist.test.images
-    # eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
-    
-    # print(train_data)
-    # print(train_data[0])
-    # print(train_data[0].size)
-    # print(train_data.size)
+    mnist = tf.contrib.learn.datasets.load_dataset("mnist")
+    train_data = mnist.train.images
+    train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
+    eval_data = mnist.test.images
+    eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
 
-    print(len(features))
+    train_data2 = None
+    for i in range(10):
+        feature = getFeatures("alda-ml/samples/" + str(i+1) + "/out.wav")
+        feature = np.reshape(feature[-1], -1).astype('float32')
+        if train_data2 is not None:
+            train_data2 = np.vstack([train_data2, feature])
+        else:
+            train_data2 = np.array(feature)
+    print(train_data2.shape)
 
-    return
+    train_labels2 = None
+    for i in range(10):
+        with open("alda-ml/samples/" + str(i+1) + "/score.json") as f:
+            score = json.loads(f.read())
+            note = score['events'][0]['midi-note']
+            label = [0 for x in range(88)]
+            label[note] = 1
+        if train_labels2 is not None:
+            train_labels2 = np.vstack([train_labels2, label])
+        else:
+            train_labels2 = np.array(label)
+    print(train_labels2.shape)
 
     clf = tf.estimator.Estimator(
         model_fn=cnn, model_dir="tmp/coolModel")
 
-    tensorTrain(train_data, train_labels, clf)
+    tensorTrain(train_data2, train_labels2, clf)
 
-    results = tensorEval(eval_data, eval_labels, clf)
+    #results = tensorEval(eval_data, eval_labels, clf)
 
-    print(results)
+    
+    predict_input_fn = tf.estimator.inputs.numpy_input_fn(
+      x={"x": np.array(features).astype("float32")},
+      num_epochs=1,
+      shuffle=False)
+
+    results = list(clf.predict(input_fn=predict_input_fn))
+
+    result = [p["classes"] for p in results]
+
+    for r in result:
+        r[r < 0.3] = 0
+        r[r >= 0.3] = 1
+        u, c = np.unique(r, return_counts=True)
+        print(dict(zip(u, c)).get(1))
 
 def cnn(features, labels, mode):
-    input_layer = tf.reshape(features['x'], [-1, 28, 28, 1])
+    input_layer = tf.reshape(features['x'], [-1, 48, 336, 1])
 
     conv1 = tf.layers.conv2d(
         inputs=input_layer,
@@ -130,24 +152,23 @@ def cnn(features, labels, mode):
 
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2,2], strides=2)
 
-    pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
+    pool2_flat = tf.reshape(pool2, [-1, 12 * 84 * 64])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(
         inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 
-    logits = tf.layers.dense(inputs=dropout, units=10)
+    logits = tf.layers.dense(inputs=dropout, units=88)
 
     predictions = {
-        "classes": tf.argmax(input=logits, axis=1),
-        "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+        "classes": logits,
+        "probabilities": logits
     }
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
-    onehot_labels = tf.one_hot(indices=tf.cast(labels, tf.int32), depth=10)
-    loss = tf.losses.softmax_cross_entropy(
-        onehot_labels=onehot_labels, logits=logits)
+    loss = tf.losses.mean_squared_error(
+        labels=labels, predictions=logits)
 
     if mode == tf.estimator.ModeKeys.TRAIN:
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
