@@ -17,6 +17,7 @@ def postProcess(nodes):
 # Converts the index of a key to its name
 #
 # key: index of key from [0,84)
+# returns a tuple of the form (step, alter, octave, duration, type)
 def idxToKey(key):
     octave = int(key / 12)
     if key % 12 in [1, 3, 6, 8, 10]:
@@ -39,4 +40,4 @@ def idxToKey(key):
         step = 'B'
     else:
         print('idxToKey failure')
-    return (step, alter, octave)
+    return (step, alter, octave, 1, '16th')
