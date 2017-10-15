@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from sheetMusic import sheetMusic
 import librosa
 import librosa.display
 import sys
@@ -188,3 +189,4 @@ if __name__ == "__main__":
         score()
     else:
         score(sys.argv[1])
+    sheetMusic('test',[[],[],[],[]], 100)
