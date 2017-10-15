@@ -12,12 +12,13 @@ def postProcess(nodes):
                 print('Unknown key value')
                 return
         notes.append(chord)
+    return notes
 
 # Converts the index of a key to its name
 #
 # key: index of key from [0,84)
 def idxToKey(key):
-    octave = key / 12
+    octave = int(key / 12)
     if key % 12 in [1, 3, 6, 8, 10]:
         alter = 1
     else:

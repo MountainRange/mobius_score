@@ -7,14 +7,15 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import json
+from postProcess import postProcess
 
 import tensorflow as tf
 
 def score(songname="moonlightshort.mp3"):
 
-    features = getFeatures(songname)
+    features, tempo = getFeatures(songname)
 
-    tensorDemo(features)
+    return tensorDemo(features), tempo
 
 def getFeatures(songname):
     song, sample_rate = librosa.load(songname, sr=44100)
@@ -55,7 +56,7 @@ def getFeatures(songname):
     for q in quarterBeats:
         features.append(amp_cqt[:,q-w:q+w])
     print(len(features))
-    return features
+    return features, tempo
 
 def tensorTrain(train_data, train_labels, clf):
     train_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -79,39 +80,34 @@ def tensorEval(eval_data, eval_labels, clf):
 
 
 def tensorDemo(features):
-    mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-    train_data = mnist.train.images
-    train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-    eval_data = mnist.test.images
-    eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
 
-    train_data2 = None
+    train_data = None
     for i in range(10):
-        feature = getFeatures("alda-ml/samples/" + str(i+1) + "/out.wav")
+        feature, tempo = getFeatures("alda-ml/samples/" + str(i+1) + "/out.wav")
         feature = np.reshape(feature[-1], -1).astype('float32')
-        if train_data2 is not None:
-            train_data2 = np.vstack([train_data2, feature])
+        if train_data is not None:
+            train_data = np.vstack([train_data, feature])
         else:
-            train_data2 = np.array(feature)
-    print(train_data2.shape)
+            train_data = np.array(feature)
+    print(train_data.shape)
 
-    train_labels2 = None
+    train_labels = None
     for i in range(10):
         with open("alda-ml/samples/" + str(i+1) + "/score.json") as f:
             score = json.loads(f.read())
             note = score['events'][0]['midi-note']
             label = [0 for x in range(88)]
             label[note] = 1
-        if train_labels2 is not None:
-            train_labels2 = np.vstack([train_labels2, label])
+        if train_labels is not None:
+            train_labels = np.vstack([train_labels, label])
         else:
-            train_labels2 = np.array(label)
-    print(train_labels2.shape)
+            train_labels = np.array(label)
+    print(train_labels.shape)
 
     clf = tf.estimator.Estimator(
         model_fn=cnn, model_dir="tmp/coolModel")
 
-    tensorTrain(train_data2, train_labels2, clf)
+    tensorTrain(train_data, train_labels, clf)
 
     #results = tensorEval(eval_data, eval_labels, clf)
 
@@ -130,6 +126,12 @@ def tensorDemo(features):
         r[r >= 0.3] = 1
         u, c = np.unique(r, return_counts=True)
         print(dict(zip(u, c)).get(1))
+    
+    print(result)
+    out = [list(x) for x in result]
+    print(out)
+    print("TEST")
+    return out
 
 def cnn(features, labels, mode):
     input_layer = tf.reshape(features['x'], [-1, 48, 336, 1])
@@ -186,7 +188,10 @@ def cnn(features, labels, mode):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        score()
+        song, tempo = score()
     else:
-        score(sys.argv[1])
-    sheetMusic('test',[[],[],[],[]], 100)
+        song, tempo = score(sys.argv[1])
+    print(song)
+    post = postProcess(song)
+    print(post)
+    sheetMusic('test', post, int(tempo))
