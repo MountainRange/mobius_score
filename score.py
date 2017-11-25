@@ -55,7 +55,7 @@ def getFeatures(songname):
     features = []
     for q in quarterBeats:
         features.append(amp_cqt[:,q-w:q+w])
-    print(len(features))
+    print(str(len(features)) + ' features detected')
     return features, tempo
 
 def tensorTrain(train_data, train_labels, clf):
@@ -89,7 +89,7 @@ def tensorDemo(features):
             train_data = np.vstack([train_data, feature])
         else:
             train_data = np.array(feature)
-    print(train_data.shape)
+    # print(train_data.shape)
 
     train_labels = None
     for i in range(10):
@@ -102,7 +102,7 @@ def tensorDemo(features):
             train_labels = np.vstack([train_labels, label])
         else:
             train_labels = np.array(label)
-    print(train_labels.shape)
+    # print(train_labels.shape)
 
     clf = tf.estimator.Estimator(
         model_fn=cnn, model_dir="tmp/coolModel")
@@ -125,12 +125,8 @@ def tensorDemo(features):
         r[r < 0.3] = 0
         r[r >= 0.3] = 1
         u, c = np.unique(r, return_counts=True)
-        print(dict(zip(u, c)).get(1))
-    
-    print(result)
+
     out = [list(x) for x in result]
-    print(out)
-    print("TEST")
     return out
 
 def cnn(features, labels, mode):
@@ -191,7 +187,7 @@ if __name__ == "__main__":
         song, tempo = score()
     else:
         song, tempo = score(sys.argv[1])
-    print(song)
     post = postProcess(song)
-    print(post)
+    # print('postProcess result:')
+    # print(post)
     sheetMusic('test', post, int(tempo))

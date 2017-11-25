@@ -10,6 +10,7 @@ def sheetMusic(filename, notes, tempo=100, key=0):
     if type(notes) is not list and type(notes[0]) is not list:
         print('notes must be list of lists')
         return
+    print('Writing sheet music to ' + filename + '.xml')
     f=open(filename + ".xml","w+")
     f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     f.write('<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n')
@@ -36,7 +37,6 @@ def sheetMusic(filename, notes, tempo=100, key=0):
     # write measures to xml
     measurecount = 0
     for i in range(len(notes)):
-        print('note')
         if i % 4 == 0:
             f.write('    <measure number="' + str(measurecount) + '">\n')
             if measurecount == 0:
