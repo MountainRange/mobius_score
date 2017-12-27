@@ -38,10 +38,15 @@ def tensorDemo(features):
     return out
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        song, tempo = score()
-    else:
-        song, tempo = score(sys.argv[1])
+    songname = 'nuvolebianchecut.mp3'
+    init = False
+    for i in range(len(sys.argv)):
+        param = sys.argv[i]
+        if param == '-s':
+            songname = sys.argv[i+1]
+        elif param == '-i':
+            init = True
+    song, tempo = score(songname)
     post = postProcess(song)
     # print('postProcess result:')
     # print(post)
