@@ -7,3 +7,5 @@ alda-ml/*
 __pycache__/
 *.py[cod]
 *$py.class
+
+*.h5
