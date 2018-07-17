@@ -14,11 +14,37 @@ def postProcess(nodes):
         notes.append(chord)
     return notes
 
+
+import numpy as np
+def postProcessMidi(mid, tempo):
+    step = (60.0 / tempo)
+    print(tempo)
+    print(step)
+    length = mid.length
+    print(length)
+    beats = np.arange(step, length, step)
+
+    curbeat = 0
+    chordlist = []
+    chord = []
+    currentTime = 0
+    for msg in mid:
+        currentTime += msg.time
+        while curbeat < len(beats) and currentTime > beats[curbeat]:
+            chordlist.append(chord)
+            chord = []
+            curbeat += 1
+        if msg.type == 'note_on':
+            chord.append(idxToKey(msg.note-21))
+    return chordlist
+
+
+
 # Converts the index of a key to its name
 #
 # key: index of key from [0,84)
 # returns a tuple of the form (step, alter, octave, duration, type)
-def idxToKey(key):
+def idxToKey(key, length='16th'):
     octave = int(key / 12)
     if key % 12 in [1, 3, 6, 8, 10]:
         alter = 1
@@ -40,4 +66,4 @@ def idxToKey(key):
         step = 'B'
     else:
         print('idxToKey failure')
-    return (step, alter, octave, 1, '16th')
+    return (step, alter, octave, 1, length)

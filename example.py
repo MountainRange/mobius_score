@@ -1,17 +1,19 @@
 import sys
 import numpy as np
 from loadmodel import loadmodel
-from imageio import imread
+from imageio import imread, imwrite
 import scipy
 import scipy.io.wavfile
 import mido
 import librosa
+import math
     
 sys.path.append("Mask_RCNN/")
 
 from mrcnn import visualize
 
-PIXELSPERSECOND = 329
+PIXELSPERINPUT = 509
+SECONDSPERINPUT = 6
 
 # midi notes to corresponding piano key 0-127
 MIDINAMES = np.array(['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-',\
@@ -32,38 +34,23 @@ def stft(x, fft_size, hopsamp):
                      for i in range(0, len(x)-fft_size, hopsamp)])
 
 def wav_to_spec(fn):
-    print("Convert to raw")
     input_signal, sample_rate = librosa.load(fn, sr=44100)
     stft_mag = np.array([])
     for i in range(len(input_signal)//int(1e6)):
         temp_signal = input_signal[(int(1e6)*i):(int(1e6)*(i+1))]
-        fft_size = 2048
-        hopsamp = fft_size // 16
+        fft_size = 4096
+        hopsamp = fft_size // 8
         stft_full = stft(temp_signal, fft_size, hopsamp)
         if stft_mag.shape[0] != 0:
             stft_mag = np.concatenate((stft_mag, abs(stft_full)*2))
         else:
             stft_mag = abs(stft_full)*2
+
+    tempo, _ = librosa.beat.beat_track(y=input_signal, sr=sample_rate, hop_length=512)
     
-    return stft_mag[:, :256].T
+    return stft_mag[:, :512].T, tempo
 
-def analyze_image(image, model, gt, fn):
-
-    # show ground truth if --ground-truth is enabled
-    # if gt:
-    #     notes = [x[1] for x in np.load(fn + '_notes.npy')]
-    #     mask = np.load(fn + '_mask.npz')['mask']
-
-    #     bboxes = []
-    #     for i in range(len(notes)):
-    #         notes[i] = int(notes[i])
-    #         bboxes.append([0,1,1,1])
-    #     notes = np.array(notes)
-    #     bboxes = np.array(bboxes)
-
-    #     print("Displaying Ground Truth masks for image")
-    #     visualize.display_instances(image, bboxes, mask, notes, 
-    #                                 MIDINAMES, figsize=(8, 8))
+def analyze_image(image, model, fn):
 
     print("Executing model on image")
     results = model.detect([image], verbose=1)
@@ -72,26 +59,35 @@ def analyze_image(image, model, gt, fn):
     r = results[0]
     # visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'], 
     #                             MIDINAMES, figsize=(8, 8))
-    return to_note_arr(r['rois'], r['class_ids'], r['scores'])
+    return to_note_arr_v2(r['rois'], r['class_ids'], r['scores'])
 
 def to_note_arr(bboxes, notes, scores):
     notearr = []
     for i in range(len(bboxes)):
-        if scores[i] < 0.5:
+        if scores[i] < 0.7:
             continue
-        x1 = bboxes[i][1]
-        x2 = bboxes[i][3]
+        x1 = bboxes[i][1] * SECONDSPERINPUT
+        x2 = bboxes[i][3] * SECONDSPERINPUT
         pos = x1 + ((x2-x1)//2)
-        notearr.append((pos/PIXELSPERSECOND, notes[i]))
+        notearr.append((pos/PIXELSPERINPUT, notes[i]))
     return notearr
 
+def to_note_arr_v2(bboxes, notes, scores):
+    notearr = []
+    for i in range(len(bboxes)):
+        if scores[i] < 0.7:
+            continue
+        x1 = bboxes[i][1] * SECONDSPERINPUT
+        x2 = bboxes[i][3] * SECONDSPERINPUT
+        pos = (x1 + 1)/PIXELSPERINPUT
+        endpos = (x2)/PIXELSPERINPUT
+        notearr.append((pos, notes[i], endpos))
+    return notearr
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Execute model on a single spectrogram')
-    parser.add_argument('-g', '--ground-truth', dest='gt', action='store_true',
-                        help='FOR DEV DEBUGING, NEED MASK FILES: displays ground truth if available')
     parser.add_argument('-f', '--file', dest='fn', default='alb_esp1.mp3',
                         help='file path for audio file')
     args = parser.parse_args()
@@ -102,30 +98,74 @@ if __name__ == "__main__":
     # image = imread(args.image)
 
     print("CONVERT")
-    origImage = wav_to_spec('moonlight.mp3')
-
+    origImage, tempo = wav_to_spec('ronfaure.mp3')
     print("START")
     notes = []
-    pps = PIXELSPERSECOND
-    for i in range(origImage.shape[1]//pps):
-        image = origImage[:,(pps*i):(pps*(i+1))]
+    ppi = PIXELSPERINPUT
+    spi = SECONDSPERINPUT
+    win = 1 # window = (win x ppi)
+    for i in range(origImage.shape[1]//(ppi//win)):
+        image = origImage[:,(ppi*(i//win)):(ppi*((i//win)+1))]
+        #image = imread('examples/test6.wav.png')
         image = np.dstack((image, image, image))
-        newnotes = analyze_image(image, model, args.gt, 'alb_esp1')
-        notes += [(x[0]+i, x[1]) for x in newnotes]
+        newnotes = analyze_image(image, model, 'examples/test6')
+        notes += [(x[0]+((i//win)*spi), x[1], x[2]+((i//win)*spi)) for x in newnotes]
 
     mid = mido.MidiFile()
     track = mido.MidiTrack()
     mid.tracks.append(track)
 
-    #track.append(mido.MetaMessage('set_tempo', tempo=500000, time=0))
+    microsecondsPerQuarter = int(500000*(tempo/120))
+    track.append(mido.MetaMessage('set_tempo', tempo=microsecondsPerQuarter, time=0))
     #track.append(mido.Message('program_change', program=0, time=0))
-    prevTime = 0
-    notes = sorted(notes, key=lambda x: x[0])
+    timeAdjust = (500000/microsecondsPerQuarter)
+    wholenote = 960
+    smallestBeat = ((1/16.0)*2)*timeAdjust
+    def beatFit(x, base=smallestBeat):
+        return base * int(float(x)/base)
+    def beatCeil(x, base=smallestBeat):
+        return base * math.ceil(float(x)/base)
     for i in range(len(notes)):
-        currentTime = int(notes[i][0]*960)
+        notes[i] = (notes[i][0]*timeAdjust, notes[i][1], notes[i][2]*timeAdjust)
+    for i in range(len(notes)):
+        if notes[i][2] != -1:
+            length = beatCeil(notes[i][2]-notes[i][0])
+            endnote = (notes[i][0]+length, notes[i][1]*-1, -1)
+            notes.append(endnote)
+    notes = sorted(notes, key=lambda x: x[0])
+    prevTime = 0
+    lastnoteOns = {}
+    lastnoteOffs = {}
+    skipNextOff = False
+    for i in range(len(notes)):
+        currentTime = int(notes[i][0]*wholenote)
         print(currentTime)
-        track.append(mido.Message('note_on', note=notes[i][1], time=currentTime-prevTime))
+        if notes[i][1] < 0:
+            if lastnoteOffs.get(notes[i][1]*-1):
+                lastnoteOffs[notes[i][1]*-1] = currentTime
+            if not skipNextOff:
+                track.append(mido.Message('note_on', velocity=0, note=notes[i][1]*-1, time=currentTime-prevTime))
+            else:
+                skipNextOff = False
+        else:
+            if lastnoteOns.get(notes[i][1]):
+                lastnoteOns[notes[i][1]] = currentTime
+            if not lastnoteOffs.get(notes[i][1]) or lastnoteOffs.get(notes[i][1]) >= lastnoteOns.get(notes[i][1]):
+                track.append(mido.Message('note_on', note=notes[i][1], time=currentTime-prevTime))
+            else:
+                skipNextOff = True
         prevTime = currentTime
     
     mid.save('test.mid')
     
+    print(tempo)
+
+    # from postProcess import postProcessMidi
+    # from sheetMusic import sheetMusic
+
+    # chordlist = postProcessMidi(mid, tempo)
+
+    # print(chordlist)
+
+    # sheetMusic('test', chordlist, int(tempo))
+
