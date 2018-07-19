@@ -1,9 +1,17 @@
+
+
+noteNames = ['64th','32nd','16th','eighth','quarter','half','whole']
+
 # Generates sheet music in xml format from note information
 #
 # filename: string that the xml file should be named
-# title: string that will appear as the title of the sheet music
 # notes: array of chord arrays
-def sheetMusic(filename, notes, tempo=100, key=0):
+# tempo: tempo of the song
+# key: key signature
+# title: string that will appear as the title of the sheet music
+# smallestNote: smallest note fraction to be used, (64 = 64th note, 4 = quarter note)
+# 
+def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, keybeats=4, keytype=4):
     if type(filename) is not str:
         print('filename must be of type str')
         return
@@ -34,20 +42,22 @@ def sheetMusic(filename, notes, tempo=100, key=0):
     f.write('  </part-list>\n')
     f.write('  <part id="P1">\n')
 
-    # write measures to xml
     measurecount = 0
+    restDuration = 0
+    # write measures to xml
     for i in range(len(notes)):
-        if i % 16 == 0:
+        measureSize = int(smallestNote * (keybeats/keytype))
+        if i % measureSize == 0:
             f.write('    <measure number="' + str(measurecount) + '">\n')
             if measurecount == 0:
                 f.write('      <attributes>\n')
-                f.write('        <divisions>4</divisions>\n')
+                f.write('        <divisions>' + str(smallestNote / 4) + '</divisions>\n')
                 f.write('        <key>\n')
                 f.write('          <fifths>' + str(key) + '</fifths>\n')
                 f.write('        </key>\n')
                 f.write('        <time>\n')
-                f.write('          <beats>4</beats>\n')
-                f.write('          <beat-type>4</beat-type>\n')
+                f.write('          <beats>' + str(keybeats) + '</beats>\n')
+                f.write('          <beat-type>' + str(keytype) + '</beat-type>\n')
                 f.write('        </time>\n')
                 f.write('        <staves>2</staves>\n')
                 f.write('        <clef number="1">\n')
@@ -69,15 +79,24 @@ def sheetMusic(filename, notes, tempo=100, key=0):
                 f.write('      </direction>\n')
             measurecount += 1
         if len(notes[i]) == 0:
-            f.write('      <note>\n')
-            f.write('        <rest/>\n')
-            f.write('        <duration>1</duration>\n')
-            f.write('        <type>16th</type>\n')
-            f.write('      </note>\n')
+            restDuration += 1
         else:
+            if restDuration > 0:
+                restDuration = buildRests(f, restDuration, smallestNote)
+            elif restDuration < 0:
+                restDuration += 1
             # add all notes in chord
             for j in range(len(notes[i])):
                 note = notes[i][j]
+                duration = note[3]
+                if (i % measureSize) + duration > measureSize:
+                    duration = measureSize - (i % measureSize)
+
+                if restDuration > 0:
+                    restDuration -= duration
+                elif 1 - duration < restDuration:
+                    restDuration = 1 - duration
+                
                 f.write('      <note>\n')
                 if j != 0:
                     f.write('        <chord/>\n')
@@ -86,13 +105,30 @@ def sheetMusic(filename, notes, tempo=100, key=0):
                 f.write('          <alter>' + str(note[1]) + '</alter>\n')
                 f.write('          <octave>' + str(note[2]) + '</octave>\n')
                 f.write('        </pitch>\n')
-                f.write('        <duration>' + str(note[3]) + '</duration>\n')
-                f.write('        <type>' + str(note[4]) + '</type>\n')
+                f.write('        <duration>' + str(duration) + '</duration>\n')
+                f.write('        <type>' + str(noteNames[int(np.log2(duration))]) + '</type>\n')
                 f.write('      </note>\n')
-        if i % 16 == 15:
+        if i % measureSize == measureSize-1:
+            restDuration = buildRests(f, restDuration, smallestNote)
             f.write('    </measure>\n')
-    if i % 16 != 15:
+    if i % measureSize != measureSize-1:
         f.write('    </measure>\n')
     f.write('  </part>\n')
     f.write('</score-partwise>\n')
     f.close()
+
+import numpy as np
+def buildRests(f, restDuration, smallestNote):
+    restSize = smallestNote
+    while restDuration != 0:
+        #print(restDuration)
+        numRests = restDuration // restSize
+        for i in range(numRests):
+            f.write('      <note>\n')
+            f.write('        <rest/>\n')
+            f.write('        <duration>' + str(restSize) + '</duration>\n')
+            f.write('        <type>' + noteNames[int(np.log2(restSize))] + '</type>\n')
+            f.write('      </note>\n')
+            restDuration -= restSize
+        restSize //= 2
+    return restDuration

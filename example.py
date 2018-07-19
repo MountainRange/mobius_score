@@ -7,6 +7,7 @@ import scipy.io.wavfile
 import mido
 import librosa
 import math
+from audiomisc import ks_key
     
 sys.path.append("Mask_RCNN/")
 
@@ -47,8 +48,22 @@ def wav_to_spec(fn):
             stft_mag = abs(stft_full)*2
 
     tempo, _ = librosa.beat.beat_track(y=input_signal, sr=sample_rate, hop_length=512)
+
+    chroma = librosa.feature.chroma_stft(y=input_signal, sr=sample_rate)
+    chroma = [sum(x)/len(x) for x in chroma]
+    bestmajor, bestminor = ks_key(chroma)
+    if max(bestmajor) > max(bestminor):
+        key = np.argmax(bestmajor)
+        #         C, Db, D, Eb, E, F, F#, G, Ab, A, Bb, B
+        keymap = [0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5]
+    else:
+        key = np.argmax(bestminor)
+        #         c, c#, d,  eb, e, f, f#, g,  g#, a, bb, b
+        keymap = [-3, 4, -1, -6, 1, -4, 3, -2,  5, 0, -5, 2]
+    print(key)
+    print(keymap[key])
     
-    return stft_mag[:, :512].T, tempo
+    return stft_mag[:, :512].T, tempo, keymap[key]
 
 def analyze_image(image, model, fn):
 
@@ -98,7 +113,7 @@ if __name__ == "__main__":
     # image = imread(args.image)
 
     print("CONVERT")
-    origImage, tempo = wav_to_spec('ronfaure.mp3')
+    origImage, tempo, key = wav_to_spec('zitah.mp3')
     print("START")
     notes = []
     ppi = PIXELSPERINPUT
@@ -119,53 +134,44 @@ if __name__ == "__main__":
     track.append(mido.MetaMessage('set_tempo', tempo=microsecondsPerQuarter, time=0))
     #track.append(mido.Message('program_change', program=0, time=0))
     timeAdjust = (500000/microsecondsPerQuarter)
-    wholenote = 960
-    smallestBeat = ((1/16.0)*2)*timeAdjust
+    smallestBeat = ((1/64.0)*2)*timeAdjust
     def beatFit(x, base=smallestBeat):
+        return base * round(float(x)/base)
+    def beatFloor(x, base=smallestBeat):
         return base * int(float(x)/base)
     def beatCeil(x, base=smallestBeat):
         return base * math.ceil(float(x)/base)
     for i in range(len(notes)):
-        notes[i] = (notes[i][0]*timeAdjust, notes[i][1], notes[i][2]*timeAdjust)
+        notes[i] = (beatFit(notes[i][0]*timeAdjust), notes[i][1], beatFit(notes[i][2]*timeAdjust))
+    
+    from postProcess import postProcessMidi
+    from sheetMusic import sheetMusic
+
+    notes = sorted(notes, key=lambda x: x[0])
+    chordlist = postProcessMidi(notes, tempo, smallestBeat)
+
+    print(chordlist)
+
+    sheetMusic('test', chordlist, int(tempo), key=key)
+    
     for i in range(len(notes)):
         if notes[i][2] != -1:
-            length = beatCeil(notes[i][2]-notes[i][0])
+            length = notes[i][2]-notes[i][0]
             endnote = (notes[i][0]+length, notes[i][1]*-1, -1)
             notes.append(endnote)
     notes = sorted(notes, key=lambda x: x[0])
     prevTime = 0
-    lastnoteOns = {}
-    lastnoteOffs = {}
-    skipNextOff = False
+    wholenote = 960
     for i in range(len(notes)):
         currentTime = int(notes[i][0]*wholenote)
-        print(currentTime)
+        #print(currentTime)
         if notes[i][1] < 0:
-            if lastnoteOffs.get(notes[i][1]*-1):
-                lastnoteOffs[notes[i][1]*-1] = currentTime
-            if not skipNextOff:
-                track.append(mido.Message('note_on', velocity=0, note=notes[i][1]*-1, time=currentTime-prevTime))
-            else:
-                skipNextOff = False
+            track.append(mido.Message('note_on', velocity=0, note=notes[i][1]*-1, time=currentTime-prevTime))
         else:
-            if lastnoteOns.get(notes[i][1]):
-                lastnoteOns[notes[i][1]] = currentTime
-            if not lastnoteOffs.get(notes[i][1]) or lastnoteOffs.get(notes[i][1]) >= lastnoteOns.get(notes[i][1]):
-                track.append(mido.Message('note_on', note=notes[i][1], time=currentTime-prevTime))
-            else:
-                skipNextOff = True
+            track.append(mido.Message('note_on', note=notes[i][1], time=currentTime-prevTime))
         prevTime = currentTime
     
     mid.save('test.mid')
     
     print(tempo)
-
-    # from postProcess import postProcessMidi
-    # from sheetMusic import sheetMusic
-
-    # chordlist = postProcessMidi(mid, tempo)
-
-    # print(chordlist)
-
-    # sheetMusic('test', chordlist, int(tempo))
 
