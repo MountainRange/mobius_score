@@ -37,7 +37,7 @@ def sheetMusic(filename, notes, tempo=100, key=0):
     # write measures to xml
     measurecount = 0
     for i in range(len(notes)):
-        if i % 4 == 0:
+        if i % 16 == 0:
             f.write('    <measure number="' + str(measurecount) + '">\n')
             if measurecount == 0:
                 f.write('      <attributes>\n')
@@ -67,11 +67,12 @@ def sheetMusic(filename, notes, tempo=100, key=0):
                 f.write('          </metronome>\n')
                 f.write('        </direction-type>\n')
                 f.write('      </direction>\n')
+            measurecount += 1
         if len(notes[i]) == 0:
             f.write('      <note>\n')
             f.write('        <rest/>\n')
-            f.write('        <duration>4</duration>\n')
-            f.write('        <type>quarter</type>\n')
+            f.write('        <duration>1</duration>\n')
+            f.write('        <type>16th</type>\n')
             f.write('      </note>\n')
         else:
             # add all notes in chord
@@ -88,9 +89,9 @@ def sheetMusic(filename, notes, tempo=100, key=0):
                 f.write('        <duration>' + str(note[3]) + '</duration>\n')
                 f.write('        <type>' + str(note[4]) + '</type>\n')
                 f.write('      </note>\n')
-        if i % 4 == 3:
+        if i % 16 == 15:
             f.write('    </measure>\n')
-    if i % 4 != 3:
+    if i % 16 != 15:
         f.write('    </measure>\n')
     f.write('  </part>\n')
     f.write('</score-partwise>\n')
