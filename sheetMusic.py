@@ -11,7 +11,7 @@ noteNames = ['64th','32nd','16th','eighth','quarter','half','whole']
 # title: string that will appear as the title of the sheet music
 # smallestNote: smallest note fraction to be used, (64 = 64th note, 4 = quarter note)
 # 
-def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, keybeats=4, keytype=4):
+def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, keybeats=3, keytype=4):
     if type(filename) is not str:
         print('filename must be of type str')
         return
@@ -44,14 +44,16 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
 
     measurecount = 0
     restDuration = 0
+    currentTime = 0
     # write measures to xml
     for i in range(len(notes)):
         measureSize = int(smallestNote * (keybeats/keytype))
         if i % measureSize == 0:
+            voices = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0}
             f.write('    <measure number="' + str(measurecount) + '">\n')
             if measurecount == 0:
                 f.write('      <attributes>\n')
-                f.write('        <divisions>' + str(smallestNote / 4) + '</divisions>\n')
+                f.write('        <divisions>' + str(int(smallestNote / 4)) + '</divisions>\n')
                 f.write('        <key>\n')
                 f.write('          <fifths>' + str(key) + '</fifths>\n')
                 f.write('        </key>\n')
@@ -82,11 +84,18 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
             restDuration += 1
         else:
             if restDuration > 0:
-                restDuration = buildRests(f, restDuration, smallestNote)
+                voice = findVoice(voices, currentTime, restDuration)
+                restDuration = buildRests(f, restDuration, smallestNote, voice)
             elif restDuration < 0:
                 restDuration += 1
             # add all notes in chord
             for j in range(len(notes[i])):
+
+                if currentTime > i:
+                    f.write('      <backup>\n')
+                    f.write('        <duration>' + str(currentTime - i) + '</duration>\n')
+                    f.write('      </backup>\n')
+
                 note = notes[i][j]
                 duration = note[3]
                 if (i % measureSize) + duration > measureSize:
@@ -106,10 +115,22 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
                 f.write('          <octave>' + str(note[2]) + '</octave>\n')
                 f.write('        </pitch>\n')
                 f.write('        <duration>' + str(duration) + '</duration>\n')
+                f.write('        <voice>' + str(findVoice(voices, currentTime, duration)) + '</voice>\n')
                 f.write('        <type>' + str(noteNames[int(np.log2(duration))]) + '</type>\n')
+                f.write('        <staff>' + str(1) + '</staff>\n')
                 f.write('      </note>\n')
+
+                if currentTime > i and i + duration < currentTime:
+                    f.write('      <forward>\n')
+                    f.write('        <duration>' + str(currentTime - i - duration) + '</duration>\n')
+                    f.write('      </forward>\n')
+                
+                if i + duration > currentTime:
+                    currentTime = i + duration
+
         if i % measureSize == measureSize-1:
-            restDuration = buildRests(f, restDuration, smallestNote)
+            voice = findVoice(voices, currentTime, restDuration)
+            restDuration = buildRests(f, restDuration, smallestNote, voice)
             f.write('    </measure>\n')
     if i % measureSize != measureSize-1:
         f.write('    </measure>\n')
@@ -117,8 +138,16 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
     f.write('</score-partwise>\n')
     f.close()
 
+
+def findVoice(voices, currentTime, duration):
+    for i in range(1,8):
+        if currentTime > voices[i]:
+            voices[i] = currentTime + duration
+            return i
+    return -1
+
 import numpy as np
-def buildRests(f, restDuration, smallestNote):
+def buildRests(f, restDuration, smallestNote, voice):
     restSize = smallestNote
     while restDuration != 0:
         #print(restDuration)
@@ -127,7 +156,9 @@ def buildRests(f, restDuration, smallestNote):
             f.write('      <note>\n')
             f.write('        <rest/>\n')
             f.write('        <duration>' + str(restSize) + '</duration>\n')
+            f.write('        <voice>' + str(voice) + '</voice>\n')
             f.write('        <type>' + noteNames[int(np.log2(restSize))] + '</type>\n')
+            f.write('        <staff>' + str(1) + '</staff>\n')
             f.write('      </note>\n')
             restDuration -= restSize
         restSize //= 2

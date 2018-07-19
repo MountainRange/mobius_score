@@ -28,8 +28,9 @@ def postProcessMidi(notelist, tempo, step):
     curbeat = 0
     chordlist = []
     chord = []
+    #lastNoteEnd = -1
     for i in range(len(notelist)):
-        while curbeat < len(beats) and notelist[i][0] > beats[curbeat]:
+        while curbeat < len(beats) and notelist[i][0] > beats[curbeat]:# and notelist[i][0] >= lastNoteEnd:
             chordlist.append(chord)
             chord = []
             curbeat += 1
@@ -42,6 +43,8 @@ def postProcessMidi(notelist, tempo, step):
         duration = 2**int(round(np.log2(length / step)))
         lengthName = notelengths[int(round(np.log2(duration)))]
         chord.append(idxToKey2(notelist[i][1], lengthName, duration))
+        # if notelist[i][0] >= lastNoteEnd:
+        #     lastNoteEnd = notelist[i][2]-(length/2)
 
     return chordlist
 
