@@ -1,6 +1,6 @@
 
 
-noteNames = ['16th','eighth','quarter','half','whole']#'64th','32nd',
+noteNames = ['64th','32nd','16th','eighth','quarter','half','whole']#
 
 # Generates sheet music in xml format from note information
 #
@@ -44,7 +44,6 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
 
     measurecount = 0
     currentTime = 0
-    latestTime = 0
     # write measures to xml
     for i in range(len(notes)):
         measureSize = int(smallestNote * (keybeats/keytype))
@@ -84,13 +83,12 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
             
             duration = notes[i][0][3]
 
-            if i - latestTime > 0:
-                buildRests(f, i - latestTime, smallestNote, 1)
-
             if currentTime > i:
                 f.write('      <backup>\n')
                 f.write('        <duration>' + str(currentTime - i) + '</duration>\n')
                 f.write('      </backup>\n')
+            elif i > currentTime:
+                buildRests(f, i - currentTime, smallestNote, 1)
 
             voice = findVoice(voices, currentTime, duration)
             newChord = True
@@ -123,21 +121,14 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
                 f.write('        <type>' + str(noteNames[int(np.log2(duration))]) + '</type>\n')
                 f.write('        <staff>' + str(1) + '</staff>\n')
                 f.write('      </note>\n')
-
-            if currentTime > i and i + duration < currentTime:
-                f.write('      <forward>\n')
-                f.write('        <duration>' + str(currentTime - i - duration) + '</duration>\n')
-                f.write('      </forward>\n')
-                
+            
             if i + duration > currentTime:
                 currentTime = i + duration
 
-            if currentTime > latestTime:
-                latestTime = currentTime
-
         if i % measureSize == measureSize-1:
-            if i - latestTime > 0:
-                buildRests(f, i - latestTime, smallestNote, 1)
+            if (i + 1) - currentTime > 0:
+                buildRests(f, (i + 1) - currentTime, smallestNote, 1)
+                currentTime = (i + 1)
             f.write('    </measure>\n')
     if i % measureSize != measureSize-1:
         f.write('    </measure>\n')
