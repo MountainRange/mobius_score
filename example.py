@@ -134,7 +134,7 @@ if __name__ == "__main__":
     track.append(mido.MetaMessage('set_tempo', tempo=microsecondsPerQuarter, time=0))
     #track.append(mido.Message('program_change', program=0, time=0))
     timeAdjust = (500000/microsecondsPerQuarter)
-    smallestBeat = ((1/64.0)*2)*timeAdjust
+    smallestBeat = ((1/16.0)*2)*timeAdjust
     def beatFit(x, base=smallestBeat):
         return base * round(float(x)/base)
     def beatFloor(x, base=smallestBeat):
@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     print(chordlist)
 
-    sheetMusic('test', chordlist, int(tempo), key=key)
+    sheetMusic('test', chordlist, int(tempo), key=key, smallestNote=16)
     
     for i in range(len(notes)):
         if notes[i][2] != -1:

@@ -17,7 +17,7 @@ def postProcess(nodes):
 
 import numpy as np
 def postProcessMidi(notelist, tempo, step):
-    notelengths = ['64th','32nd','16th','eighth','quarter','half','whole','breve','long','maxima']
+    notelengths = ['16th','eighth','quarter','half','whole','breve','long','maxima'] #'64th','32nd',
 
     print(tempo)
     print(step)

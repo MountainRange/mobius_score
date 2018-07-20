@@ -1,6 +1,6 @@
 
 
-noteNames = ['64th','32nd','16th','eighth','quarter','half','whole']
+noteNames = ['16th','eighth','quarter','half','whole']#'64th','32nd',
 
 # Generates sheet music in xml format from note information
 #
@@ -43,8 +43,8 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
     f.write('  <part id="P1">\n')
 
     measurecount = 0
-    restDuration = 0
     currentTime = 0
+    latestTime = 0
     # write measures to xml
     for i in range(len(notes)):
         measureSize = int(smallestNote * (keybeats/keytype))
@@ -80,57 +80,64 @@ def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, 
                 f.write('        </direction-type>\n')
                 f.write('      </direction>\n')
             measurecount += 1
-        if len(notes[i]) == 0:
-            restDuration += 1
-        else:
-            if restDuration > 0:
-                voice = findVoice(voices, currentTime, restDuration)
-                restDuration = buildRests(f, restDuration, smallestNote, voice)
-            elif restDuration < 0:
-                restDuration += 1
+        if len(notes[i]) != 0:
+            
+            duration = notes[i][0][3]
+
+            if i - latestTime > 0:
+                buildRests(f, i - latestTime, smallestNote, 1)
+
+            if currentTime > i:
+                f.write('      <backup>\n')
+                f.write('        <duration>' + str(currentTime - i) + '</duration>\n')
+                f.write('      </backup>\n')
+
+            voice = findVoice(voices, currentTime, duration)
+            newChord = True
             # add all notes in chord
             for j in range(len(notes[i])):
 
-                if currentTime > i:
-                    f.write('      <backup>\n')
-                    f.write('        <duration>' + str(currentTime - i) + '</duration>\n')
-                    f.write('      </backup>\n')
-
                 note = notes[i][j]
-                duration = note[3]
-                if (i % measureSize) + duration > measureSize:
-                    duration = measureSize - (i % measureSize)
-
-                if restDuration > 0:
-                    restDuration -= duration
-                elif 1 - duration < restDuration:
-                    restDuration = 1 - duration
+                if note[3] != duration:
+                    newChord = True
+                    f.write('      <backup>\n')
+                    f.write('        <duration>' + str(duration) + '</duration>\n')
+                    f.write('      </backup>\n')
+                    duration = note[3]
+                    voice = findVoice(voices, currentTime, duration)
+                if (currentTime % measureSize) + duration > measureSize:
+                    duration = measureSize - (currentTime % measureSize)
                 
                 f.write('      <note>\n')
-                if j != 0:
+                if j != 0 and not newChord:
                     f.write('        <chord/>\n')
+                if newChord:
+                    newChord = False
                 f.write('        <pitch>\n')
                 f.write('          <step>' + str(note[0]) + '</step>\n')
                 f.write('          <alter>' + str(note[1]) + '</alter>\n')
                 f.write('          <octave>' + str(note[2]) + '</octave>\n')
                 f.write('        </pitch>\n')
                 f.write('        <duration>' + str(duration) + '</duration>\n')
-                f.write('        <voice>' + str(findVoice(voices, currentTime, duration)) + '</voice>\n')
+                f.write('        <voice>' + str(voice) + '</voice>\n')
                 f.write('        <type>' + str(noteNames[int(np.log2(duration))]) + '</type>\n')
                 f.write('        <staff>' + str(1) + '</staff>\n')
                 f.write('      </note>\n')
 
-                if currentTime > i and i + duration < currentTime:
-                    f.write('      <forward>\n')
-                    f.write('        <duration>' + str(currentTime - i - duration) + '</duration>\n')
-                    f.write('      </forward>\n')
+            if currentTime > i and i + duration < currentTime:
+                f.write('      <forward>\n')
+                f.write('        <duration>' + str(currentTime - i - duration) + '</duration>\n')
+                f.write('      </forward>\n')
                 
-                if i + duration > currentTime:
-                    currentTime = i + duration
+            if i + duration > currentTime:
+                currentTime = i + duration
+
+            if currentTime > latestTime:
+                latestTime = currentTime
 
         if i % measureSize == measureSize-1:
-            voice = findVoice(voices, currentTime, restDuration)
-            restDuration = buildRests(f, restDuration, smallestNote, voice)
+            if i - latestTime > 0:
+                buildRests(f, i - latestTime, smallestNote, 1)
             f.write('    </measure>\n')
     if i % measureSize != measureSize-1:
         f.write('    </measure>\n')
@@ -144,7 +151,7 @@ def findVoice(voices, currentTime, duration):
         if currentTime > voices[i]:
             voices[i] = currentTime + duration
             return i
-    return -1
+    return 1
 
 import numpy as np
 def buildRests(f, restDuration, smallestNote, voice):
