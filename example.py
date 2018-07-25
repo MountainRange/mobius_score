@@ -8,12 +8,26 @@ import mido
 import librosa
 import math
 from audiomisc import ks_key
+import argparse
+from tqdm import tqdm
+
     
 sys.path.append("Mask_RCNN/")
 
 from mrcnn import visualize
 
-PIXELSPERINPUT = 509
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
+config = tf.ConfigProto(allow_soft_placement=True)
+#config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.55
+#config.log_device_placement = True
+                                    
+sess = tf.Session(config=config)
+set_session(sess)
+
+PIXELSPERINPUT = 485
+VERTICALCUTOFF = 512
 SECONDSPERINPUT = 6
 
 # midi notes to corresponding piano key 0-127
@@ -37,18 +51,28 @@ def stft(x, fft_size, hopsamp):
 def wav_to_spec(fn):
     input_signal, sample_rate = librosa.load(fn, sr=44100)
     stft_mag = np.array([])
-    for i in range(len(input_signal)//int(1e6)):
-        temp_signal = input_signal[(int(1e6)*i):(int(1e6)*(i+1))]
-        fft_size = 4096
-        hopsamp = fft_size // 8
+    split = int(264600)
+    for i in tqdm(range(len(input_signal)//split)):
+        temp_signal = input_signal[(split*i):(split*(i+1))]
+        fft_size = 16384
+        hopsamp = fft_size // 32
         stft_full = stft(temp_signal, fft_size, hopsamp)
-        if stft_mag.shape[0] != 0:
-            stft_mag = np.concatenate((stft_mag, abs(stft_full)*2))
-        else:
-            stft_mag = abs(stft_full)*2
 
+        stft_full = abs(stft_full)
+        if np.max(stft_full) != 0:
+            stft_full = (stft_full - np.mean(stft_full)) / np.std(stft_full)
+            stft_full += abs(np.min(stft_full))
+            stft_full *= 255.0/np.max(stft_full)
+        
+        if stft_mag.shape[0] != 0:
+            stft_mag = np.concatenate((stft_mag, stft_full))
+        else:
+            stft_mag = stft_full
+
+    print("Calculating tempo")
     tempo, _ = librosa.beat.beat_track(y=input_signal, sr=sample_rate, hop_length=512)
 
+    print("Calculating music key")
     chroma = librosa.feature.chroma_stft(y=input_signal, sr=sample_rate)
     chroma = [sum(x)/len(x) for x in chroma]
     bestmajor, bestminor = ks_key(chroma)
@@ -63,16 +87,13 @@ def wav_to_spec(fn):
     print(key)
     print(keymap[key])
     
-    return stft_mag[:, :512].T, tempo, keymap[key]
+    return stft_mag[:, :VERTICALCUTOFF].T, tempo, keymap[key]
 
-def analyze_image(image, model, fn):
+def analyze_spec(spec, model):
+    results = model.detect([spec], verbose=0)
 
-    print("Executing model on image")
-    results = model.detect([image], verbose=1)
-
-    print("Displaying results")
     r = results[0]
-    # visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'], 
+    # visualize.display_instances(spec, r['rois'], r['masks'], r['class_ids'], 
     #                             MIDINAMES, figsize=(8, 8))
     return to_note_arr_v2(r['rois'], r['class_ids'], r['scores'])
 
@@ -99,61 +120,56 @@ def to_note_arr_v2(bboxes, notes, scores):
         notearr.append((pos, notes[i], endpos))
     return notearr
 
-if __name__ == "__main__":
-    import argparse
+def run_on_spectrogram(spec):
 
-    parser = argparse.ArgumentParser(description='Execute model on a single spectrogram')
-    parser.add_argument('-f', '--file', dest='fn', default='alb_esp1.mp3',
-                        help='file path for audio file')
-    args = parser.parse_args()
-
-    model = loadmodel()
-
-    # load example image, ground truth notes and ground truth mask (just circles drawn in note locations)
-    # image = imread(args.image)
-
-    print("CONVERT")
-    origImage, tempo, key = wav_to_spec('ronfaure.mp3')
-    print("START")
     notes = []
     ppi = PIXELSPERINPUT
     spi = SECONDSPERINPUT
     win = 1 # window = (win x ppi)
-    for i in range(origImage.shape[1]//(ppi//win)):
-        image = origImage[:,(ppi*(i//win)):(ppi*((i//win)+1))]
-        #image = imread('examples/test6.wav.png')
-        image = np.dstack((image, image, image))
-        newnotes = analyze_image(image, model, 'examples/test6')
+    for i in tqdm(range(spec.shape[1]//(ppi//win))):
+        spec3c = spec[:,(ppi*(i//win)):(ppi*((i//win)+1))]
+        spec3c = np.dstack((spec3c, spec3c, spec3c))
+        newnotes = analyze_spec(spec3c, model)
         notes += [(x[0]+((i//win)*spi), x[1], x[2]+((i//win)*spi)) for x in newnotes]
 
-    mid = mido.MidiFile()
-    track = mido.MidiTrack()
-    mid.tracks.append(track)
+    return notes
+
+def calculate_note_length(notes, shortestBeat, tempo):
 
     microsecondsPerQuarter = int(500000*(tempo/120))
-    track.append(mido.MetaMessage('set_tempo', tempo=microsecondsPerQuarter, time=0))
-    #track.append(mido.Message('program_change', program=0, time=0))
     timeAdjust = (500000/microsecondsPerQuarter)
-    smallestBeat = ((1/64.0)*2)*timeAdjust
-    def beatFit(x, base=smallestBeat):
+    shortestBeat = ((1.0/args.shortest)*2)*timeAdjust
+    def beatFit(x, base=shortestBeat):
         return base * round(float(x)/base)
-    def beatFloor(x, base=smallestBeat):
+    def beatFloor(x, base=shortestBeat):
         return base * int(float(x)/base)
-    def beatCeil(x, base=smallestBeat):
+    def beatCeil(x, base=shortestBeat):
         return base * math.ceil(float(x)/base)
     for i in range(len(notes)):
         notes[i] = (beatFit(notes[i][0]*timeAdjust), notes[i][1], beatFit(notes[i][2]*timeAdjust))
     
+    return notes, timeAdjust, shortestBeat
+
+def create_sheets(notes, tempo, shortestBeat):
     from postProcess import postProcessMidi
     from sheetMusic import sheetMusic
 
     notes = sorted(notes, key=lambda x: x[0])
-    chordlist = postProcessMidi(notes, tempo, smallestBeat)
-
-    print(chordlist)
+    chordlist = postProcessMidi(notes, tempo, shortestBeat)
 
     sheetMusic('test', chordlist, int(tempo), key=key, smallestNote=64)
+
+def create_midi(notes, timeAdjust):
+
+    microsecondsPerQuarter = int(timeAdjust*500000)
+
+    mid = mido.MidiFile()
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
     
+    track.append(mido.MetaMessage('set_tempo', tempo=microsecondsPerQuarter, time=0))
+    #track.append(mido.Message('program_change', program=0, time=0))
+
     for i in range(len(notes)):
         if notes[i][2] != -1:
             length = notes[i][2]-notes[i][0]
@@ -164,7 +180,6 @@ if __name__ == "__main__":
     wholenote = 960
     for i in range(len(notes)):
         currentTime = int(notes[i][0]*wholenote)
-        #print(currentTime)
         if notes[i][1] < 0:
             track.append(mido.Message('note_on', velocity=0, note=notes[i][1]*-1, time=currentTime-prevTime))
         else:
@@ -172,6 +187,34 @@ if __name__ == "__main__":
         prevTime = currentTime
     
     mid.save('test.mid')
+
+if __name__ == "__main__":
+
+    print("Parsing arguments")
+    parser = argparse.ArgumentParser(description='Execute model on a single spectrogram')
+    parser.add_argument('-f', '--file', dest='fn', default='zitah.mp3',
+                        help='file path for audio file')
+    parser.add_argument('-s', '--shortest', dest='shortest', default=64,
+                        help='shortest note possible')
+    args = parser.parse_args()
+
+    print("Leading model")
+    model = loadmodel()
+    
+    print("Converting mp3 to spectrogram")
+    spec, tempo, key = wav_to_spec(args.fn)
+
+    print("Analysing spectrogram")
+    notes = run_on_spectrogram(spec)
+
+    print("Calculate note start times and end times")
+    notes, timeAdjust, shortestBeat = calculate_note_length(notes, args.shortest, tempo)
+
+    print("Convert notes to Musicxml")
+    create_sheets(notes, tempo, shortestBeat)
+    
+    print("Convert notes to Midi")
+    create_midi(notes, timeAdjust)
     
     print(tempo)
 

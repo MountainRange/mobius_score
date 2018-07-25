@@ -19,11 +19,8 @@ import numpy as np
 def postProcessMidi(notelist, tempo, step):
     notelengths = ['64th','32nd','16th','eighth','quarter','half','whole','breve','long','maxima'] #
 
-    print(tempo)
-    print(step)
     length = notelist[-1][0]+notelist[-1][2]+1
     beats = np.arange(step, length, step)
-    print(beats.shape)
 
     curbeat = 0
     chordlist = []

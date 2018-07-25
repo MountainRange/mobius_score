@@ -3,7 +3,7 @@ import numpy as np
 
 def loadmodel():
     # path to custom trained Mask RCNN model weights
-    model_path = "mask_rcnn_notes_0257.h5"
+    model_path = "mask_rcnn_notes_0075.h5"
 
     sys.path.append("Mask_RCNN/")
 
@@ -16,7 +16,7 @@ def loadmodel():
     from Mask_RCNN.samples.newtest.notes_config import NotesConfig, get_ax
     
     # print model details
-    NotesConfig().display()
+    #NotesConfig().display()
 
     # modify custom config to use only 1 image and 1 gpu for execution
     class InferenceConfig(NotesConfig):
