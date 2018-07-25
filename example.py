@@ -84,8 +84,6 @@ def wav_to_spec(fn):
         key = np.argmax(bestminor)
         #         c, c#, d,  eb, e, f, f#, g,  g#, a, bb, b
         keymap = [-3, 4, -1, -6, 1, -4, 3, -2,  5, 0, -5, 2]
-    print(key)
-    print(keymap[key])
     
     return stft_mag[:, :VERTICALCUTOFF].T, tempo, keymap[key]
 
@@ -161,7 +159,7 @@ def create_sheets(notes, tempo, shortestBeat):
 
 def create_midi(notes, timeAdjust):
 
-    microsecondsPerQuarter = int(timeAdjust*500000)
+    microsecondsPerQuarter = int(500000/timeAdjust)
 
     mid = mido.MidiFile()
     track = mido.MidiTrack()
@@ -198,7 +196,7 @@ if __name__ == "__main__":
                         help='shortest note possible')
     args = parser.parse_args()
 
-    print("Leading model")
+    print("Loading model")
     model = loadmodel()
     
     print("Converting mp3 to spectrogram")
