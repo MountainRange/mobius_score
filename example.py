@@ -91,8 +91,8 @@ def analyze_spec(spec, model):
     results = model.detect([spec], verbose=0)
 
     r = results[0]
-    # visualize.display_instances(spec, r['rois'], r['masks'], r['class_ids'], 
-    #                             MIDINAMES, figsize=(8, 8))
+    visualize.display_instances(spec, r['rois'], r['masks'], r['class_ids'], 
+                                MIDINAMES, figsize=(8, 8))
     return to_note_arr_v2(r['rois'], r['class_ids'], r['scores'])
 
 def to_note_arr(bboxes, notes, scores):
@@ -148,16 +148,16 @@ def calculate_note_length(notes, shortestBeat, tempo):
     
     return notes, timeAdjust, shortestBeat
 
-def create_sheets(notes, tempo, shortestBeat):
+def create_sheets(notes, tempo, shortestBeat, outfn):
     from postProcess import postProcessMidi
     from sheetMusic import sheetMusic
 
     notes = sorted(notes, key=lambda x: x[0])
     chordlist = postProcessMidi(notes, tempo, shortestBeat)
 
-    sheetMusic('test', chordlist, int(tempo), key=key, smallestNote=64)
+    sheetMusic(outfn, chordlist, int(tempo), key=key, smallestNote=64)
 
-def create_midi(notes, timeAdjust):
+def create_midi(notes, timeAdjust, outfn):
 
     microsecondsPerQuarter = int(500000/timeAdjust)
 
@@ -184,16 +184,20 @@ def create_midi(notes, timeAdjust):
             track.append(mido.Message('note_on', note=notes[i][1], time=currentTime-prevTime))
         prevTime = currentTime
     
-    mid.save('test.mid')
+    mid.save(outfn)
 
 if __name__ == "__main__":
 
     print("Parsing arguments")
     parser = argparse.ArgumentParser(description='Execute model on a single spectrogram')
-    parser.add_argument('-f', '--file', dest='fn', default='zitah.mp3',
+    parser.add_argument('-f', '--file', dest='fn', default='input/zitah.mp3',
                         help='file path for audio file')
     parser.add_argument('-s', '--shortest', dest='shortest', default=64,
                         help='shortest note possible')
+    parser.add_argument('-o', '--output', dest='out', default='output/out.mid',
+                        help='file path for output midi')
+    parser.add_argument('-os', '--outsheet', dest='outxml', default='output/out.xml',
+                        help='file path for output sheet music')
     args = parser.parse_args()
 
     print("Loading model")
@@ -209,10 +213,10 @@ if __name__ == "__main__":
     notes, timeAdjust, shortestBeat = calculate_note_length(notes, args.shortest, tempo)
 
     print("Convert notes to Musicxml")
-    create_sheets(notes, tempo, shortestBeat)
+    create_sheets(notes, tempo, shortestBeat, args.outxml)
     
     print("Convert notes to Midi")
-    create_midi(notes, timeAdjust)
+    create_midi(notes, timeAdjust, args.out)
     
     print(tempo)
 

@@ -11,20 +11,20 @@ noteNames = ['64th','32nd','16th','eighth','quarter','half','whole']#
 # title: string that will appear as the title of the sheet music
 # smallestNote: smallest note fraction to be used, (64 = 64th note, 4 = quarter note)
 # 
-def sheetMusic(filename, notes, tempo=100, key=0, tite='test', smallestNote=64, keybeats=3, keytype=4):
+def sheetMusic(filename, notes, tempo=100, key=0, title='test', smallestNote=64, keybeats=3, keytype=4):
     if type(filename) is not str:
         print('filename must be of type str')
         return
     if type(notes) is not list and type(notes[0]) is not list:
         print('notes must be list of lists')
         return
-    print('Writing sheet music to ' + filename + '.xml')
-    f=open(filename + ".xml","w+")
+    print('Writing sheet music to ' + filename)
+    f=open(filename,"w+")
     f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     f.write('<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n')
     f.write('<score-partwise version="3.0">\n')
     f.write('  <work>\n')
-    f.write('    <work-title>' + filename + '</work-title>\n')
+    f.write('    <work-title>' + title + '</work-title>\n')
     f.write('  </work>\n')
     f.write('  <part-list>\n')
     f.write('    <score-part id="P1">\n')
