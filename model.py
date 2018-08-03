@@ -3,7 +3,6 @@ from tqdm import tqdm
 import numpy as np
 
 from constants import PIXELSPERINPUT, SECONDSPERINPUT
-from loadmodel import loadmodel
 
 def to_note_arr(bboxes, notes, scores):
     notearr = []
@@ -28,9 +27,7 @@ def to_note_arr_v2(bboxes, notes, scores):
         notearr.append((pos, notes[i], endpos))
     return notearr
 
-def run_model_on_spectrogram(spec, mfn):
-
-    model = loadmodel(mfn)
+def run_model_on_spectrogram(spec, mfn, model):
 
     print("Running Model")
     notes = []

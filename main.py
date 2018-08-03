@@ -11,12 +11,13 @@ from constants import PIXELSPERINPUT, VERTICALCUTOFF, SECONDSPERINPUT
 from audiospec import wav_to_spec
 from model import run_model_on_spectrogram
 from parse import calculate_note_length, create_sheets, create_midi
+from loadmodel import loadmodel
 
-# Reduce GPU utilization to 55%, My GPU gets a memory error if it is higher
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
 
 def init():
+    # Reduce GPU utilization to 55%, My GPU gets a memory error if it is higher
     config = tf.ConfigProto(allow_soft_placement=True)
     #config.gpu_options.allow_growth = True
     config.gpu_options.per_process_gpu_memory_fraction = 0.55
@@ -38,15 +39,26 @@ def init():
                 'C8',\
                 '-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'])
 
+setupDone = False
+def setupOnce(mfn):
+    if not setupDone:
+        init()
+
+        print("Loading Model")
+        model = loadmodel(mfn)
+
+        setupDone = True
+    return model
+
 def main(fn, mfn, shortest, out, outxml):
 
-    init()
+    model = setupOnce(mfn)
     
     print("Converting mp3 to spectrogram")
     spec, tempo, musicKey = wav_to_spec(fn)
 
-    print("Loading and Running Model")
-    notes = run_model_on_spectrogram(spec, mfn)
+    print("Running Model")
+    notes = run_model_on_spectrogram(spec, mfn, model)
 
     print("Calculate note start times and end times")
     notes, timeAdjust, shortestBeat = calculate_note_length(notes, shortest, tempo)
