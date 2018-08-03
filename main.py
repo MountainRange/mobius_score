@@ -5,15 +5,14 @@ import scipy
 import scipy.io.wavfile
 import argparse
 
+sys.path.append("Mask_RCNN/")
+
 from constants import PIXELSPERINPUT, VERTICALCUTOFF, SECONDSPERINPUT
 from audiospec import wav_to_spec
 from model import run_model_on_spectrogram
 from parse import calculate_note_length, create_sheets, create_midi
 
-sys.path.append("Mask_RCNN/")
-
-from mrcnn import visualize
-
+# Reduce GPU utilization to 55%, My GPU gets a memory error if it is higher
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
 config = tf.ConfigProto(allow_soft_placement=True)
@@ -37,8 +36,8 @@ MIDINAMES = np.array(['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-
             'C8',\
             '-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'])
 
-if __name__ == "__main__":
-
+def main():
+    
     print("Parsing arguments")
     parser = argparse.ArgumentParser(description='Execute model on a single spectrogram')
     parser.add_argument('-f', '--file', dest='fn', default='input/zitah.mp3',
@@ -70,3 +69,5 @@ if __name__ == "__main__":
     
     print(tempo)
 
+if __name__ == "__main__":
+    main()

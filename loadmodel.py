@@ -1,14 +1,12 @@
 import sys
 import numpy as np
 
+# Import Mask RCNN
+from mrcnn.config import Config
+from mrcnn import utils
+import mrcnn.model as modellib
+
 def loadmodel(model_path="models/mask_rcnn_notes_0122_512_v2.h5"):
-
-    sys.path.append("Mask_RCNN/")
-
-    # Import Mask RCNN
-    from mrcnn.config import Config
-    from mrcnn import utils
-    import mrcnn.model as modellib
 
     # Import custom model in Mask RCNN for detecting notes in spectrograms
     from Mask_RCNN.samples.newtest.notes_config import NotesConfig, get_ax

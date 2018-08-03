@@ -45,6 +45,9 @@ def run_model_on_spectrogram(spec, mfn):
 
     return notes
 
+import sys
+
+from mrcnn import visualize
 def analyze_spec(spec, model):
     results = model.detect([spec], verbose=0)
 
