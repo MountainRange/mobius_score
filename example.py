@@ -26,7 +26,7 @@ config.gpu_options.per_process_gpu_memory_fraction = 0.55
 sess = tf.Session(config=config)
 set_session(sess)
 
-PIXELSPERINPUT = 485
+PIXELSPERINPUT = 501
 VERTICALCUTOFF = 512
 SECONDSPERINPUT = 6
 
@@ -51,11 +51,11 @@ def stft(x, fft_size, hopsamp):
 def wav_to_spec(fn):
     input_signal, sample_rate = librosa.load(fn, sr=44100)
     stft_mag = np.array([])
-    split = int(264600)
+    split = int(2e6)#int(264600)
     for i in tqdm(range(len(input_signal)//split)):
         temp_signal = input_signal[(split*i):(split*(i+1))]
-        fft_size = 16384
-        hopsamp = fft_size // 32
+        fft_size = 8192
+        hopsamp = fft_size // 16
         stft_full = stft(temp_signal, fft_size, hopsamp)
 
         stft_full = abs(stft_full)
@@ -91,8 +91,8 @@ def analyze_spec(spec, model):
     results = model.detect([spec], verbose=0)
 
     r = results[0]
-    visualize.display_instances(spec, r['rois'], r['masks'], r['class_ids'], 
-                                MIDINAMES, figsize=(8, 8))
+    # visualize.display_instances(spec, r['rois'], r['masks'], r['class_ids'], 
+    #                             MIDINAMES, figsize=(8, 8))
     return to_note_arr_v2(r['rois'], r['class_ids'], r['scores'])
 
 def to_note_arr(bboxes, notes, scores):

@@ -3,7 +3,7 @@ import numpy as np
 
 def loadmodel():
     # path to custom trained Mask RCNN model weights
-    model_path = "models/mask_rcnn_notes_0099.h5"
+    model_path = "models/mask_rcnn_notes_0122_512_v2.h5"
 
     sys.path.append("Mask_RCNN/")
 
