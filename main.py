@@ -36,8 +36,26 @@ MIDINAMES = np.array(['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-
             'C8',\
             '-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'])
 
-def main():
+def main(fn, mfn, shortest, out, outxml):
     
+    print("Converting mp3 to spectrogram")
+    spec, tempo, musicKey = wav_to_spec(fn)
+
+    print("Loading and Running Model")
+    notes = run_model_on_spectrogram(spec, mfn)
+
+    print("Calculate note start times and end times")
+    notes, timeAdjust, shortestBeat = calculate_note_length(notes, shortest, tempo)
+
+    print("Convert notes to Musicxml")
+    create_sheets(notes, tempo, shortestBeat, outxml, musicKey)
+    
+    print("Convert notes to Midi")
+    create_midi(notes, timeAdjust, out)
+    
+    print(tempo)
+
+def parseArgs():
     print("Parsing arguments")
     parser = argparse.ArgumentParser(description='Execute model on a single spectrogram')
     parser.add_argument('-f', '--file', dest='fn', default='input/zitah.mp3',
@@ -51,23 +69,8 @@ def main():
     parser.add_argument('-os', '--outsheet', dest='outxml', default='output/out.xml',
                         help='file path for output sheet music')
     args = parser.parse_args()
-    
-    print("Converting mp3 to spectrogram")
-    spec, tempo, musicKey = wav_to_spec(args.fn)
 
-    print("Loading and Running Model")
-    notes = run_model_on_spectrogram(spec, args.mfn)
-
-    print("Calculate note start times and end times")
-    notes, timeAdjust, shortestBeat = calculate_note_length(notes, args.shortest, tempo)
-
-    print("Convert notes to Musicxml")
-    create_sheets(notes, tempo, shortestBeat, args.outxml, musicKey)
-    
-    print("Convert notes to Midi")
-    create_midi(notes, timeAdjust, args.out)
-    
-    print(tempo)
+    main(args.fn, args.mfn, args.shortest, args.out, args.outxml)
 
 if __name__ == "__main__":
-    main()
+    parseArgs()
