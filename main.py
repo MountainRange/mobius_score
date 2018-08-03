@@ -39,20 +39,18 @@ def init():
                 'C8',\
                 '-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'])
 
-setupDone = False
 def setupOnce(mfn):
-    if not setupDone:
-        init()
+    init()
+    
+    print("Loading Model")
+    model = loadmodel(mfn)
 
-        print("Loading Model")
-        model = loadmodel(mfn)
-
-        setupDone = True
     return model
 
-def main(fn, mfn, shortest, out, outxml):
+def main(fn, mfn, shortest, out, outxml, model=None):
 
-    model = setupOnce(mfn)
+    if not model:
+        model = setupOnce(mfn)
     
     print("Converting mp3 to spectrogram")
     spec, tempo, musicKey = wav_to_spec(fn)
