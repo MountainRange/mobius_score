@@ -2,7 +2,7 @@
 from tqdm import tqdm
 import numpy as np
 
-from constants import PIXELSPERINPUT, SECONDSPERINPUT
+from constants import PIXELSPERINPUT, SECONDSPERINPUT, MIDINAMES
 
 def to_note_arr(bboxes, notes, scores):
     notearr = []
